@@ -1,6 +1,5 @@
 package VIEWS;
 
-import MODELS.InfoField;
 import javafx.event.EventHandler;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
@@ -16,46 +15,56 @@ import org.mariuszgromada.math.mxparser.*;
 public class FXMLBasicFormController implements Initializable {
 
     @FXML
+
     private AnchorPane ancr;
-    InfoField infoField;
-    private int cellWidth = 75;
-    private int cellHeight = 20;
+
+    private final int CELL_WIDTH = 75;
+    private final int CELL_HEIGHT = 20;
+
+    private final int ROW_COUNT = 51;
+    private final int COLUMN_COUNT = 27;
+
     private TextField[][] textFields;
-    private String[][] textContains;
+    private String[][] textFormula;
+    private String[][] textResult;
+
     @Override
     public void initialize(URL location, ResourceBundle resources) {
-        infoField = new InfoField(51, 27);
-        textFields  = new TextField[infoField.getCountRow()][infoField.getCountColumn()];
-        textContains = new String[infoField.getCountRow()][infoField.getCountColumn()];
+
+        textFields  = new TextField[ROW_COUNT][COLUMN_COUNT];
+        textFormula = new String[ROW_COUNT][COLUMN_COUNT];
+        textResult = new String[ROW_COUNT][COLUMN_COUNT];
+
         FillAncorPane();
         TextFieldHeader();
     }
 
 
+    //заповняє нашу форму і додає ф-цію, яка буде викликати рекурсію
     private void FillAncorPane() {
-        for(int i = 0; i < infoField.getCountRow(); i++) {
-            for (int j = 0; j < infoField.getCountColumn(); j++) {
+        for(int i = 0; i < ROW_COUNT; i++) {
+            for (int j = 0; j < COLUMN_COUNT; j++) {
                 textFields[i][j] = new TextField();
 
                 if(j == 0) {
-                    textFields[i][0].setPrefSize(cellWidth / 3 + 10, cellHeight);
-                    textFields[i][j].setLayoutX(j * cellWidth);
+                    textFields[i][0].setPrefSize(CELL_WIDTH / 3 + 10, CELL_HEIGHT);
+                    textFields[i][j].setLayoutX(j * CELL_WIDTH);
                     textFields[i][j].setAlignment(Pos.BASELINE_LEFT);
                 }
                 else {
-                    textFields[i][j].setPrefSize(cellWidth, cellHeight);
-                    textFields[i][j].setLayoutX(j * cellWidth - 2 * cellWidth / 3 + 5);
+                    textFields[i][j].setPrefSize(CELL_WIDTH, CELL_HEIGHT);
+                    textFields[i][j].setLayoutX(j * CELL_WIDTH - 2 * CELL_WIDTH/ 3 + 5);
                     textFields[i][j].setAlignment(Pos.CENTER);
                 }
 
-                textFields[i][j].setLayoutY(i * cellHeight);
+                textFields[i][j].setLayoutY(i * CELL_HEIGHT);
                 final int rowIndex = i;
                 final int columnIndex = j;
                 textFields[i][j].setOnKeyPressed(new EventHandler<KeyEvent>() {
                     @Override
                     public void handle(KeyEvent event) {
                         if(event.getCode().equals(KeyCode.ENTER)) {
-                            textContains[rowIndex][columnIndex] = textFields[rowIndex][columnIndex].getText();
+                            textFormula[rowIndex][columnIndex] = textFields[rowIndex][columnIndex].getText();
 
                             StartOperation();
 
@@ -69,48 +78,48 @@ public class FXMLBasicFormController implements Initializable {
         }
     }
 
+    //додає заголовок до першого рядка та числа до першого стовпця
     private void TextFieldHeader() {
         textFields[0][0].setEditable(false);
 
-        for(int i = 1; i < infoField.getCountRow(); ++i) {
+        for(int i = 1; i < ROW_COUNT; ++i) {
             textFields[i][0].setText(String.valueOf(i));
             textFields[i][0].setEditable(false);
         }
 
-        for(int i = 1; i < infoField.getCountColumn(); ++i) {
+        for(int i = 1; i < COLUMN_COUNT; ++i) {
             textFields[0][i].setText(String.valueOf((char)(i + 64)));
             textFields[0][i].setEditable(false);
         }
     }
 
+    //ф-ція зчитування даних
     private void StartOperation() {
-        for(int i = 1; i <infoField.getCountRow(); ++i) {
-            for (int j = 1; j < infoField.getCountColumn(); j++) {
+        for(int i = 1; i < ROW_COUNT; ++i) {
+            for (int j = 1; j < COLUMN_COUNT; j++) {
 
-                if(textContains[i][j] != null) {
-                    if(textContains[i][j].toCharArray()[0] != '=') {
-                        textContains[i][j] = "#InputError";
+                if(textFormula[i][j] != null) {
+                    if(textFormula[i][j].startsWith("'")) {
+                        textResult[i][j] = textFormula[i][j].substring(1);
                         continue;
                     }
-
-                    String temp = textContains[i][j].substring(1);
-                    if(temp.toCharArray()[0] == '\'') {//якщо текст
-                        temp = temp.substring(1);
-                        textContains[i][j] = temp;
+                    else if(textFormula[i][j].startsWith("=")) {
+                        textResult[i][j] = ParseString(textFormula[i][j].substring(1));
                     }
-                    else {
-                        temp = ParseString(temp);
-                    }
-
+                    else if(tryParseDouble(textFormula[i][j]))
+                        textResult[i][j] = String.valueOf(Double.parseDouble(textFormula[i][j]));
+                    else
+                        textResult[i][j] = "#InputError";
                 }
             }
         }
     }
 
+    //ф-ція передачі результату на форму
     private void NewText() {
-        for(int i = 0; i < infoField.getCountRow(); i++) {
-            for(int j = 0; j < infoField.getCountColumn(); j++) {
-                textFields[i][j].setText(textContains[i][j]);
+        for(int i = 0; i < ROW_COUNT; i++) {
+            for(int j = 0; j < COLUMN_COUNT; j++) {
+                textFields[i][j].setText(textResult[i][j]);
             }
         }
 
@@ -119,12 +128,21 @@ public class FXMLBasicFormController implements Initializable {
 
     private String ParseString(String t) {
         t = t.replaceAll("\\s+", "");
-//        String[] spliting = t.split("\\+|\\-|\\*|\\/");
         Expression e = new Expression(t);
-        if(e.checkSyntax())
-            System.out.println(e.calculate());
-        else
-            System.out.println("ERROR");
-        return "";
+        if(e.checkSyntax()) {
+            return String.valueOf(e.calculate());
+        }
+        else {
+            return "";
+        }
+    }
+
+    boolean tryParseDouble(String value) {
+        try {
+            Double.parseDouble(value);
+            return true;
+        } catch (NumberFormatException e) {
+            return false;
+        }
     }
 }
