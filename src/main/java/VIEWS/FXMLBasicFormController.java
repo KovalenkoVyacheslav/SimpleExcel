@@ -61,16 +61,13 @@ public class FXMLBasicFormController implements Initializable {
                 textFields[i][j].setLayoutY(i * CELL_HEIGHT);
                 final int rowIndex = i;
                 final int columnIndex = j;
-                textFields[i][j].setOnKeyPressed(new EventHandler<KeyEvent>() {
-                    @Override
-                    public void handle(KeyEvent event) {
-                        if(event.getCode().equals(KeyCode.ENTER)) {
-                            textFormula[rowIndex][columnIndex] = textFields[rowIndex][columnIndex].getText();
+                textFields[i][j].setOnKeyPressed(event -> {
+                    if(event.getCode().equals(KeyCode.ENTER)) {
+                        textFormula[rowIndex][columnIndex] = textFields[rowIndex][columnIndex].getText();
 
-                            StartOperation();
+                        StartOperation();
 
-                            NewText();
-                        }
+                        NewText();
                     }
                 });
                 ancr.getChildren().add(textFields[i][j]);
@@ -101,18 +98,15 @@ public class FXMLBasicFormController implements Initializable {
                 if(textFormula[i][j] != null) {
                     if(textFormula[i][j].startsWith("'")) {
                         textResult[i][j] = textFormula[i][j].substring(1);
-                        continue;
                     }
                     else if(textFormula[i][j].startsWith("=")) {
                         textResult[i][j] = ParseString(textFormula[i][j].substring(1));
                     }
                     else if(tryParseDouble(textFormula[i][j])) {
                         textResult[i][j] = String.valueOf(Double.parseDouble(textFormula[i][j]));
-                        continue;
                     }
                     else {
                         textResult[i][j] = "#InputError";
-                        continue;
                     }
                 }
             }
@@ -153,7 +147,7 @@ public class FXMLBasicFormController implements Initializable {
     private String GetResultFromFormula(String t) {
 
         if(t.startsWith("="))
-            t.substring(1);
+            t = t.substring(1);
 
         ArrayList<String> formulaRef = new ArrayList<>();
         ArrayList<String> formulaSign = new ArrayList<>();
@@ -167,7 +161,7 @@ public class FXMLBasicFormController implements Initializable {
                 local = local + x;
             else if(x >= (int)'0' && x <= (int)'9')
                 local = local + x;
-            if(local.length() >= 2) {
+            if(local.length() >= 2 || tryParseDouble(local)) {
                 formulaRef.add(local);
                 local = "";
             }
@@ -179,23 +173,25 @@ public class FXMLBasicFormController implements Initializable {
                 formulaRef.set(i, startRecursion(formulaRef.get(i)));
 
             String temp = "";
-            for(int i = 0; i < formulaSign.size(); i++)
+            for(int i = 0; i < formulaSign.size(); i++) {
+                if(formulaRef.get(i).startsWith("-")) {
+                    formulaRef.set(i, "(" + formulaRef.get(i)  + ")");
+                }
                 temp += formulaRef.get(i) + formulaSign.get(i);
+            }
+
             temp += formulaRef.get(formulaSign.size());
             return String.valueOf(new Expression(temp).calculate());
         }
     }
 
-    public boolean CheckNextStep(String vl)
+    private boolean CheckNextStep(String vl)
     {
         Expression e = new Expression(vl);
-        if(e.checkSyntax())
-            return true;
-        else
-            return false;
+        return e.checkSyntax();
     }
 
-    public String startRecursion(String r) {
+    private String startRecursion(String r) {
         if(tryParseDouble(r))
             return r;
         int i = Integer.valueOf(r.substring(1));
