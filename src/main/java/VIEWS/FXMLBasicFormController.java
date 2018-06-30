@@ -9,6 +9,7 @@ import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.layout.AnchorPane;
 import java.net.URL;
+import java.util.ArrayList;
 import java.util.ResourceBundle;
 import org.mariuszgromada.math.mxparser.*;
 
@@ -27,8 +28,9 @@ public class FXMLBasicFormController implements Initializable {
     private TextField[][] textFields;
     private String[][] textFormula;
     private String[][] textResult;
-
+    private String alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
     @Override
+
     public void initialize(URL location, ResourceBundle resources) {
 
         textFields  = new TextField[ROW_COUNT][COLUMN_COUNT];
@@ -38,7 +40,6 @@ public class FXMLBasicFormController implements Initializable {
         FillAncorPane();
         TextFieldHeader();
     }
-
 
     //заповняє нашу форму і додає ф-цію, яка буде викликати рекурсію
     private void FillAncorPane() {
@@ -72,7 +73,6 @@ public class FXMLBasicFormController implements Initializable {
                         }
                     }
                 });
-
                 ancr.getChildren().add(textFields[i][j]);
             }
         }
@@ -106,10 +106,14 @@ public class FXMLBasicFormController implements Initializable {
                     else if(textFormula[i][j].startsWith("=")) {
                         textResult[i][j] = ParseString(textFormula[i][j].substring(1));
                     }
-                    else if(tryParseDouble(textFormula[i][j]))
+                    else if(tryParseDouble(textFormula[i][j])) {
                         textResult[i][j] = String.valueOf(Double.parseDouble(textFormula[i][j]));
-                    else
+                        continue;
+                    }
+                    else {
                         textResult[i][j] = "#InputError";
+                        continue;
+                    }
                 }
             }
         }
@@ -127,22 +131,88 @@ public class FXMLBasicFormController implements Initializable {
     }
 
     private String ParseString(String t) {
-        t = t.replaceAll("\\s+", "");
-        Expression e = new Expression(t);
+        t = t.replaceAll("\\s+", "");// видалили пробіли
+
+        Expression e = new Expression(t);// створюємо вираз
         if(e.checkSyntax()) {
-            return String.valueOf(e.calculate());
+            return String.valueOf(e.calculate()); // якщо можливо порахувати, повертаємо результат
         }
-        else {
-            return "";
-        }
+        else
+            return GetResultFromFormula(t);
     }
 
-    boolean tryParseDouble(String value) {
+    private boolean tryParseDouble(String value) {
         try {
             Double.parseDouble(value);
             return true;
         } catch (NumberFormatException e) {
             return false;
         }
+    }
+
+    private String GetResultFromFormula(String t) {
+
+        if(t.startsWith("="))
+            t.substring(1);
+
+        ArrayList<String> formulaRef = new ArrayList<>();
+        ArrayList<String> formulaSign = new ArrayList<>();
+        String local = "";
+        for (char x:t.toCharArray()) {
+            if(x == '+' || x == '-' || x == '*' || x == '/') {
+                formulaSign.add(String.valueOf(x));
+                continue;
+            }
+            else if(x >= (int)'A' && x <= (int)'Z')
+                local = local + x;
+            else if(x >= (int)'0' && x <= (int)'9')
+                local = local + x;
+            if(local.length() >= 2) {
+                formulaRef.add(local);
+                local = "";
+            }
+        }
+        if(formulaRef.size() == 1)
+            return startRecursion(formulaRef.get(0));
+        else {
+            for(int i = 0; i < formulaRef.size(); i++)
+                formulaRef.set(i, startRecursion(formulaRef.get(i)));
+
+            String temp = "";
+            for(int i = 0; i < formulaSign.size(); i++)
+                temp += formulaRef.get(i) + formulaSign.get(i);
+            temp += formulaRef.get(formulaSign.size());
+            return String.valueOf(new Expression(temp).calculate());
+        }
+    }
+
+    public boolean CheckNextStep(String vl)
+    {
+        Expression e = new Expression(vl);
+        if(e.checkSyntax())
+            return true;
+        else
+            return false;
+    }
+
+    public String startRecursion(String r) {
+        if(tryParseDouble(r))
+            return r;
+        int i = Integer.valueOf(r.substring(1));
+        int j = alphabet.indexOf(r.toCharArray()[0]) + 1;
+        String prepare = textFormula[i][j];
+
+        if(prepare == null)
+            return  "0";
+
+        if(prepare.startsWith("="))
+            prepare = prepare.substring(1);
+
+        if(CheckNextStep(prepare)) {
+            textResult[i][j] = String.valueOf(new Expression(prepare).calculate());
+            return textResult[i][j];
+        }
+        else
+            return textResult[i][j] = String.valueOf(startRecursion(GetResultFromFormula(prepare)));
     }
 }
